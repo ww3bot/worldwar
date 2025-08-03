@@ -811,58 +811,33 @@
 
     <script>
         // Game Data Storage
-        let gameData = {
-            users: {
-                'admin': { password: 'admin123', role: 'admin' },
-                'iran': { password: 'iran123', role: 'country', country: 'ایران', flag: '🇮🇷' },
-                'usa': { password: 'usa123', role: 'country', country: 'آمریکا', flag: '🇺🇸' },
-                'china': { password: 'china123', role: 'country', country: 'چین', flag: '🇨🇳' }
-            },
-            countries: {
-                'iran': { 
-                    name: 'ایران', flag: '🇮🇷', economy: 2500000, military: 1200000, production: 85, defense: 92,
-                    equipment: { missiles: 450, tanks: 1200, fighters: 180, helicopters: 95, airDefense: 120, personnel: 850000 }
-                },
-                'usa': { 
-                    name: 'آمریکا', flag: '🇺🇸', economy: 5000000, military: 2000000, production: 95, defense: 88,
-                    equipment: { missiles: 800, tanks: 2500, fighters: 350, helicopters: 200, airDefense: 300, personnel: 1500000 }
-                },
-                'china': { 
-                    name: 'چین', flag: '🇨🇳', economy: 4500000, military: 1800000, production: 90, defense: 85,
-                    equipment: { missiles: 650, tanks: 2000, fighters: 280, helicopters: 150, airDefense: 250, personnel: 1200000 }
-                }
-            },
-            currentUser: null,
-            currentEditingCountry: null,
-            currentTradeRequest: null,
-            worldStatus: 'war',
-            statements: [],
-            tradeRequests: [],
-            adminRequests: [],
-            newsItems: []
-        };
+        let gameData = null;
 
-        // Login System
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
+window.addEventListener("load", async function () {
+    gameData = await loadGameDataFromGitHub();
+
+    // Login System - بلافاصله بعد از بارگذاری دیتا
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        
+        if (gameData.users[username] && gameData.users[username].password === password) {
+            gameData.currentUser = username;
+            const user = gameData.users[username];
             
-            if (gameData.users[username] && gameData.users[username].password === password) {
-                gameData.currentUser = username;
-                const user = gameData.users[username];
-                
-                if (user.role === 'admin') {
-                    showAdminPanel();
-                } else if (user.role === 'country') {
-                    showCountryPanel(username);
-                }
-                
-                showNotification('✅ ورود موفقیت‌آمیز!', 'success');
-            } else {
-                showNotification('❌ نام کاربری یا رمز عبور اشتباه است!', 'error');
+            if (user.role === 'admin') {
+                showAdminPanel();
+            } else if (user.role === 'country') {
+                showCountryPanel(username);
             }
-        });
+            
+            showNotification('✅ ورود موفقیت‌آمیز!', 'success');
+        } else {
+            showNotification('❌ نام کاربری یا رمز عبور اشتباه است!', 'error');
+        }
+    });
+});
 
         // Show Admin Panel
         function showAdminPanel() {
