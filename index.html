@@ -177,6 +177,19 @@
             box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
         }
         
+        .sidebar-item.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: rgba(100, 116, 139, 0.3);
+            color: rgba(148, 163, 184, 0.5);
+        }
+        
+        .sidebar-item.disabled:hover {
+            background: rgba(100, 116, 139, 0.3);
+            color: rgba(148, 163, 184, 0.5);
+            transform: none;
+        }
+        
         .navbar {
             background: rgba(15, 23, 42, 0.95);
             backdrop-filter: blur(20px);
@@ -397,7 +410,7 @@
             </form>
             
             <div class="mt-8 text-center">
-                <p class="text-xs text-slate-400">@Siyina ایدی تلگرام سازنده</p>
+                <p class="text-xs text-slate-400">فقط برای فرماندهان مجاز</p>
             </div>
         </div>
     </div>
@@ -447,6 +460,10 @@
                             <span class="text-3xl">📊</span>
                             <span>آمار کلی</span>
                         </div>
+                        <div onclick="showAdminSection('gameControl')" class="sidebar-item" data-section="gameControl">
+                            <span class="text-3xl">🎮</span>
+                            <span>کنترل بازی</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -474,6 +491,10 @@
                         <div onclick="showAdminSection('statistics'); closeMobileMenu()" class="sidebar-item" data-section="statistics">
                             <span class="text-3xl">📊</span>
                             <span>آمار کلی</span>
+                        </div>
+                        <div onclick="showAdminSection('gameControl'); closeMobileMenu()" class="sidebar-item" data-section="gameControl">
+                            <span class="text-3xl">🎮</span>
+                            <span>کنترل بازی</span>
                         </div>
                     </div>
                 </div>
@@ -597,6 +618,47 @@
                         آمار کلی بازی
                     </h2>
                     <div id="globalStats" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"></div>
+                </div>
+
+                <!-- کنترل بازی -->
+                <div id="adminGameControl" class="admin-section hidden">
+                    <h2 class="text-3xl font-bold text-white mb-8 flex items-center gap-4">
+                        <span class="text-4xl">🎮</span>
+                        کنترل کلی بازی
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="glass-card p-8 text-white">
+                            <h3 class="text-xl font-bold mb-6 flex items-center gap-3">
+                                <span class="text-3xl">🔴</span>
+                                خاموش کردن بازی
+                            </h3>
+                            <p class="text-slate-300 mb-6">با خاموش کردن بازی، تمام بازیکنان فقط می‌توانند آمار خود را مشاهده کنند و امکان حمله، تجارت و صدور بیانیه را نخواهند داشت.</p>
+                            <button onclick="toggleGameStatus(false)" class="war-btn w-full py-4">
+                                🔴 خاموش کردن بازی
+                            </button>
+                        </div>
+                        <div class="glass-card p-8 text-white">
+                            <h3 class="text-xl font-bold mb-6 flex items-center gap-3">
+                                <span class="text-3xl">🟢</span>
+                                روشن کردن بازی
+                            </h3>
+                            <p class="text-slate-300 mb-6">با روشن کردن بازی، تمام بازیکنان دسترسی کامل به امکانات بازی خواهند داشت و می‌توانند حمله، تجارت و صدور بیانیه انجام دهند.</p>
+                            <button onclick="toggleGameStatus(true)" class="peace-btn w-full py-4">
+                                🟢 روشن کردن بازی
+                            </button>
+                        </div>
+                    </div>
+                    <div class="glass-card p-8 mt-8 text-white">
+                        <h3 class="text-xl font-bold mb-4 flex items-center gap-3">
+                            <span class="text-3xl">📊</span>
+                            وضعیت فعلی بازی
+                        </h3>
+                        <div id="gameStatusDisplay" class="text-center">
+                            <div class="text-6xl mb-4" id="gameStatusIcon">🟢</div>
+                            <p class="text-2xl font-bold" id="gameStatusText">بازی روشن است</p>
+                            <p class="text-slate-300 mt-2" id="gameStatusDesc">بازیکنان دسترسی کامل به امکانات دارند</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -954,6 +1016,7 @@
         let db = null;
         let currentUser = null;
         let currentCountry = null;
+        let gameEnabled = true;
 
         // آمار پیش‌فرض کشورها
         const countryDefaults = {
@@ -1142,10 +1205,11 @@
         }
 
         // نمایش پنل بازیکن
-        function showPlayerPanel() {
+        async function showPlayerPanel() {
             document.getElementById('loginPage').classList.add('hidden');
             document.getElementById('playerPanel').classList.remove('hidden');
             document.getElementById('countryTitle').innerHTML = `<span class="text-4xl">🏴</span> ${currentCountry.name}`;
+            await checkGameStatus();
             loadPlayerData();
         }
 
@@ -1177,6 +1241,7 @@
             if (section === 'economy') loadEconomySection();
             if (section === 'news') loadAdminNews();
             if (section === 'statistics') loadGlobalStats();
+            if (section === 'gameControl') loadGameControlSection();
         }
 
         // نمایش بخش‌های بازیکن
@@ -1716,6 +1781,7 @@
 
         // خرید سلاح
         async function buyWeapon(weaponType, price) {
+            if (!checkGameAccess('خرید سلاح')) return;
             const qtyInput = document.getElementById(weaponType === 'missiles' ? 'missileQty' : 
                                                   weaponType === 'soldiers' ? 'soldierQty' :
                                                   weaponType === 'bombers' ? 'bomberQty' :
@@ -1780,6 +1846,7 @@
 
         // انتشار بیانیه
         async function publishStatement() {
+            if (!checkGameAccess('صدور بیانیه')) return;
             const text = document.getElementById('statementText').value.trim();
             if (!text) {
                 alert('❌ متن بیانیه را وارد کنید!');
@@ -1819,6 +1886,7 @@
 
         // ارسال درخواست تجارت
         async function sendTradeRequest() {
+            if (!checkGameAccess('ارسال درخواست تجارت')) return;
             const targetCountry = document.getElementById('tradeCountry').value;
             const give = document.getElementById('tradeGive').value.trim();
             const receive = document.getElementById('tradeReceive').value.trim();
@@ -1923,6 +1991,7 @@
 
         // تایید تجارت
         async function acceptTrade(tradeId) {
+            if (!checkGameAccess('پذیرش تجارت')) return;
             try {
                 const tradeDoc = await db.collection('tradeRequests').doc(tradeId).get();
                 const trade = tradeDoc.data();
@@ -1945,6 +2014,7 @@
 
         // رد تجارت
         async function rejectTrade(tradeId) {
+            if (!checkGameAccess('رد تجارت')) return;
             try {
                 const tradeDoc = await db.collection('tradeRequests').doc(tradeId).get();
                 const trade = tradeDoc.data();
@@ -2002,15 +2072,15 @@
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
                                 <label class="block text-sm font-medium text-slate-300 mb-3">جنگنده (موجود: ${currentCountry.fighters || 0})</label>
-                                <input type="number" id="airFighters" class="war-input" placeholder="تعداد جنگنده" min="1" max="${currentCountry.fighters || 0}">
+                                <input type="number" id="airFighters" class="war-input" placeholder="تعداد جنگنده" min="0" max="${currentCountry.fighters || 0}">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-slate-300 mb-3">بمب‌افکن (موجود: ${currentCountry.bombers || 0})</label>
-                                <input type="number" id="airBombers" class="war-input" placeholder="تعداد بمب‌افکن" min="1" max="${currentCountry.bombers || 0}">
+                                <input type="number" id="airBombers" class="war-input" placeholder="تعداد بمب‌افکن" min="0" max="${currentCountry.bombers || 0}">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-slate-300 mb-3">موشک (موجود: ${currentCountry.missiles || 0})</label>
-                                <input type="number" id="airMissiles" class="war-input" placeholder="تعداد موشک" min="1" max="${currentCountry.missiles || 0}">
+                                <input type="number" id="airMissiles" class="war-input" placeholder="تعداد موشک" min="0" max="${currentCountry.missiles || 0}">
                             </div>
                         </div>
                     `;
@@ -2022,15 +2092,15 @@
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
                                 <label class="block text-sm font-medium text-slate-300 mb-3">تانک (موجود: ${currentCountry.tanks || 0})</label>
-                                <input type="number" id="landTanks" class="war-input" placeholder="تعداد تانک" min="1" max="${currentCountry.tanks || 0}">
+                                <input type="number" id="landTanks" class="war-input" placeholder="تعداد تانک" min="0" max="${currentCountry.tanks || 0}">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-slate-300 mb-3">سرباز (موجود: ${(currentCountry.soldiers || 0).toLocaleString()})</label>
-                                <input type="number" id="landSoldiers" class="war-input" placeholder="تعداد سرباز" min="1000" max="${currentCountry.soldiers || 0}">
+                                <input type="number" id="landSoldiers" class="war-input" placeholder="تعداد سرباز" min="0" max="${currentCountry.soldiers || 0}">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-slate-300 mb-3">موشک (موجود: ${currentCountry.missiles || 0})</label>
-                                <input type="number" id="landMissiles" class="war-input" placeholder="تعداد موشک" min="1" max="${currentCountry.missiles || 0}">
+                                <input type="number" id="landMissiles" class="war-input" placeholder="تعداد موشک" min="0" max="${currentCountry.missiles || 0}">
                             </div>
                         </div>
                     `;
@@ -2042,15 +2112,19 @@
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
                                 <label class="block text-sm font-medium text-slate-300 mb-3">ناو جنگی (موجود: ${currentCountry.warships || 0})</label>
-                                <input type="number" id="seaWarships" class="war-input" placeholder="تعداد ناو جنگی" min="1" max="${currentCountry.warships || 0}">
+                                <input type="number" id="seaWarships" class="war-input" placeholder="تعداد ناو جنگی" min="0" max="${currentCountry.warships || 0}">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-slate-300 mb-3">موشک (موجود: ${currentCountry.missiles || 0})</label>
-                                <input type="number" id="seaMissiles" class="war-input" placeholder="تعداد موشک" min="1" max="${currentCountry.missiles || 0}">
+                                <input type="number" id="seaMissiles" class="war-input" placeholder="تعداد موشک" min="0" max="${currentCountry.missiles || 0}">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-slate-300 mb-3">جنگنده (موجود: ${currentCountry.fighters || 0})</label>
-                                <input type="number" id="seaFighters" class="war-input" placeholder="تعداد جنگنده" min="1" max="${currentCountry.fighters || 0}">
+                                <input type="number" id="seaFighters" class="war-input" placeholder="تعداد جنگنده" min="0" max="${currentCountry.fighters || 0}">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-300 mb-3">بمب‌افکن (موجود: ${currentCountry.bombers || 0})</label>
+                                <input type="number" id="seaBombers" class="war-input" placeholder="تعداد بمب‌افکن" min="0" max="${currentCountry.bombers || 0}">
                             </div>
                         </div>
                     `;
@@ -2061,6 +2135,7 @@
 
         // شروع حمله
         async function launchAttack() {
+            if (!checkGameAccess('حمله نظامی')) return;
             const target = document.getElementById('attackTarget').value;
             const attackType = document.getElementById('attackType').value;
 
@@ -2126,8 +2201,9 @@
                 const warships = parseInt(document.getElementById('seaWarships').value) || 0;
                 const missiles = parseInt(document.getElementById('seaMissiles').value) || 0;
                 const fighters = parseInt(document.getElementById('seaFighters').value) || 0;
+                const bombers = parseInt(document.getElementById('seaBombers').value) || 0;
 
-                if (warships <= 0 && missiles <= 0 && fighters <= 0) {
+                if (warships <= 0 && missiles <= 0 && fighters <= 0 && bombers <= 0) {
                     alert('❌ حداقل یکی از تجهیزات دریایی را وارد کنید!');
                     return;
                 }
@@ -2144,12 +2220,16 @@
                     hasEnoughEquipment = false;
                     errorMessage += `شما فقط ${currentCountry.fighters || 0} جنگنده دارید!\n`;
                 }
+                if (bombers > (currentCountry.bombers || 0)) {
+                    hasEnoughEquipment = false;
+                    errorMessage += `شما فقط ${currentCountry.bombers || 0} بمب‌افکن دارید!\n`;
+                }
 
-                requiredEquipment = { warships, missiles, fighters };
+                requiredEquipment = { warships, missiles, fighters, bombers };
             }
 
             if (!hasEnoughEquipment) {
-                alert('❌ شما این تعداد تجهیزات را ندارید!\n\n' + errorMessage);
+                alert('❌ شما تجهیزات موجود ندارید!\n\n' + errorMessage);
                 return;
             }
 
@@ -2163,14 +2243,14 @@
                 
                 const success = attackPower > defensePower;
                 
-                // محاسبه تلفات بر اساس تجهیزات استفاده شده
-                const attackerLossPercentage = Math.random() * 0.3 + 0.1; // 10% تا 40% تلفات
-                const defenderLossPercentage = Math.random() * 0.4 + 0.2; // 20% تا 60% تلفات
+                // محاسبه تلفات واقعی‌تر بر اساس تجهیزات استفاده شده
+                const attackerLossPercentage = Math.random() * 0.25 + 0.15; // 15% تا 40% تلفات
+                const defenderLossPercentage = Math.random() * 0.35 + 0.25; // 25% تا 60% تلفات
 
                 const attackerUpdates = {};
                 const defenderUpdates = {};
 
-                // کم کردن تجهیزات استفاده شده از حمله‌کننده
+                // کم کردن تجهیزات استفاده شده از حمله‌کننده (تلفات حمله‌کننده)
                 if (attackType === 'air') {
                     const fighterLoss = Math.floor(requiredEquipment.fighters * attackerLossPercentage);
                     const bomberLoss = Math.floor(requiredEquipment.bombers * attackerLossPercentage);
@@ -2180,21 +2260,44 @@
                     attackerUpdates.bombers = Math.max(0, currentCountry.bombers - bomberLoss);
                     attackerUpdates.missiles = Math.max(0, currentCountry.missiles - missileLoss);
                     
-                    // تلفات مدافع
-                    const defenseDestroyed = Math.floor((targetCountry.airDefense || 0) * defenderLossPercentage);
-                    defenderUpdates.airDefense = Math.max(0, (targetCountry.airDefense || 0) - defenseDestroyed);
+                    // محاسبه آسیب بر اساس قدرت پدافند
+                    const defenseStrength = (targetCountry.airDefense || 0);
+                    let damageMultiplier = 1;
                     
-                    // اگر پدافند کم باشد، به تجهیزات و منابع آسیب می‌زند
-                    if ((targetCountry.airDefense || 0) < 100) {
-                        const additionalDamage = success ? 1.5 : 1;
-                        defenderUpdates.money = Math.max(0, (targetCountry.money || 0) - Math.floor(100 * additionalDamage));
-                        defenderUpdates.fighters = Math.max(0, (targetCountry.fighters || 0) - Math.floor(20 * additionalDamage));
-                        defenderUpdates.bombers = Math.max(0, (targetCountry.bombers || 0) - Math.floor(10 * additionalDamage));
+                    // اگر پدافند ضعیف یا نداشت، آسیب بیشتری وارد می‌شود
+                    if (defenseStrength < 50) {
+                        damageMultiplier = success ? 3.0 : 2.2; // پدافند خیلی ضعیف
+                    } else if (defenseStrength < 150) {
+                        damageMultiplier = success ? 2.2 : 1.6; // پدافند ضعیف
+                    } else if (defenseStrength < 300) {
+                        damageMultiplier = success ? 1.6 : 1.2; // پدافند متوسط
+                    } else {
+                        damageMultiplier = success ? 1.2 : 0.8; // پدافند قوی
                     }
+                    
+                    // تلفات مدافع - ابتدا پدافند هوایی
+                    const airDefenseDestroyed = Math.floor((targetCountry.airDefense || 0) * defenderLossPercentage * damageMultiplier);
+                    defenderUpdates.airDefense = Math.max(0, (targetCountry.airDefense || 0) - airDefenseDestroyed);
+                    
+                    // آسیب به تجهیزات و منابع - اگر پدافند کم باشد، آسیب بیشتری به سایر تجهیزات
+                    const moneyDamage = Math.floor(200 * damageMultiplier);
+                    const fighterDamage = Math.floor(35 * damageMultiplier);
+                    const bomberDamage = Math.floor(25 * damageMultiplier);
+                    const missileDamage = Math.floor(40 * damageMultiplier);
+                    const tankDamage = Math.floor(20 * damageMultiplier);
+                    const soldierDamage = Math.floor(15000 * damageMultiplier);
+                    
+                    defenderUpdates.money = Math.max(0, (targetCountry.money || 0) - moneyDamage);
+                    defenderUpdates.fighters = Math.max(0, (targetCountry.fighters || 0) - fighterDamage);
+                    defenderUpdates.bombers = Math.max(0, (targetCountry.bombers || 0) - bomberDamage);
+                    defenderUpdates.missiles = Math.max(0, (targetCountry.missiles || 0) - missileDamage);
+                    defenderUpdates.tanks = Math.max(0, (targetCountry.tanks || 0) - tankDamage);
+                    defenderUpdates.soldiers = Math.max(0, (targetCountry.soldiers || 0) - soldierDamage);
                     
                     currentCountry.fighters = attackerUpdates.fighters;
                     currentCountry.bombers = attackerUpdates.bombers;
                     currentCountry.missiles = attackerUpdates.missiles;
+                    
                 } else if (attackType === 'land') {
                     const tankLoss = Math.floor(requiredEquipment.tanks * attackerLossPercentage);
                     const soldierLoss = Math.floor(requiredEquipment.soldiers * attackerLossPercentage);
@@ -2204,47 +2307,90 @@
                     attackerUpdates.soldiers = Math.max(0, currentCountry.soldiers - soldierLoss);
                     attackerUpdates.missiles = Math.max(0, currentCountry.missiles - missileLoss);
                     
-                    // تلفات مدافع
+                    // تلفات مدافع - ابتدا نیروهای زمینی
                     const soldierDefLoss = Math.floor((targetCountry.soldiers || 0) * defenderLossPercentage);
                     const tankDefLoss = Math.floor((targetCountry.tanks || 0) * defenderLossPercentage);
                     defenderUpdates.soldiers = Math.max(0, (targetCountry.soldiers || 0) - soldierDefLoss);
                     defenderUpdates.tanks = Math.max(0, (targetCountry.tanks || 0) - tankDefLoss);
                     
-                    // اگر دفاع ضعیف باشد، به منابع آسیب می‌زند
-                    if ((targetCountry.defense || 0) < 70) {
-                        const additionalDamage = success ? 1.5 : 1;
-                        defenderUpdates.money = Math.max(0, (targetCountry.money || 0) - Math.floor(200 * additionalDamage));
-                        defenderUpdates.technology = Math.max(0, (targetCountry.technology || 0) - Math.floor(5 * additionalDamage));
+                    // محاسبه آسیب اضافی بر اساس قدرت دفاع زمینی
+                    const defenseStrength = (targetCountry.defense || 0);
+                    let additionalDamageMultiplier = 1;
+                    
+                    if (defenseStrength < 50) {
+                        additionalDamageMultiplier = success ? 2.2 : 1.6;
+                    } else if (defenseStrength < 70) {
+                        additionalDamageMultiplier = success ? 1.6 : 1.2;
+                    } else if (defenseStrength < 85) {
+                        additionalDamageMultiplier = success ? 1.2 : 0.9;
+                    } else {
+                        additionalDamageMultiplier = success ? 0.9 : 0.6;
                     }
+                    
+                    // آسیب به منابع و تجهیزات
+                    const moneyDamage = Math.floor(250 * additionalDamageMultiplier);
+                    const techDamage = Math.floor(8 * additionalDamageMultiplier);
+                    const airDefenseDamage = Math.floor(40 * additionalDamageMultiplier);
+                    
+                    defenderUpdates.money = Math.max(0, (targetCountry.money || 0) - moneyDamage);
+                    defenderUpdates.technology = Math.max(0, (targetCountry.technology || 0) - techDamage);
+                    defenderUpdates.airDefense = Math.max(0, (targetCountry.airDefense || 0) - airDefenseDamage);
                     
                     currentCountry.tanks = attackerUpdates.tanks;
                     currentCountry.soldiers = attackerUpdates.soldiers;
                     currentCountry.missiles = attackerUpdates.missiles;
+                    
                 } else if (attackType === 'sea') {
                     const warshipLoss = Math.floor(requiredEquipment.warships * attackerLossPercentage);
                     const missileLoss = Math.floor(requiredEquipment.missiles * attackerLossPercentage);
                     const fighterLoss = Math.floor(requiredEquipment.fighters * attackerLossPercentage);
+                    const bomberLoss = Math.floor(requiredEquipment.bombers * attackerLossPercentage);
                     
                     attackerUpdates.warships = Math.max(0, currentCountry.warships - warshipLoss);
                     attackerUpdates.missiles = Math.max(0, currentCountry.missiles - missileLoss);
                     attackerUpdates.fighters = Math.max(0, currentCountry.fighters - fighterLoss);
+                    attackerUpdates.bombers = Math.max(0, currentCountry.bombers - bomberLoss);
                     
-                    // تلفات مدافع
-                    const warshipDefLoss = Math.floor((targetCountry.warships || 0) * defenderLossPercentage);
-                    const defenseDestroyed = Math.floor((targetCountry.airDefense || 0) * defenderLossPercentage);
-                    defenderUpdates.warships = Math.max(0, (targetCountry.warships || 0) - warshipDefLoss);
-                    defenderUpdates.airDefense = Math.max(0, (targetCountry.airDefense || 0) - defenseDestroyed);
+                    // محاسبه آسیب بر اساس قدرت دفاع دریایی
+                    const navalDefenseStrength = (targetCountry.warships || 0) + (targetCountry.airDefense || 0) * 0.5;
+                    let damageMultiplier = 1;
                     
-                    // اگر ناوگان ضعیف باشد، به منابع آسیب می‌زند
-                    if ((targetCountry.warships || 0) < 50) {
-                        const additionalDamage = success ? 1.5 : 1;
-                        defenderUpdates.money = Math.max(0, (targetCountry.money || 0) - Math.floor(300 * additionalDamage));
-                        defenderUpdates.missiles = Math.max(0, (targetCountry.missiles || 0) - Math.floor(50 * additionalDamage));
+                    // اگر دفاع دریایی ضعیف باشد، آسیب بیشتری وارد می‌شود
+                    if (navalDefenseStrength < 50) {
+                        damageMultiplier = success ? 3.2 : 2.4;
+                    } else if (navalDefenseStrength < 120) {
+                        damageMultiplier = success ? 2.4 : 1.8;
+                    } else if (navalDefenseStrength < 200) {
+                        damageMultiplier = success ? 1.8 : 1.3;
+                    } else {
+                        damageMultiplier = success ? 1.3 : 0.9;
                     }
+                    
+                    // تلفات مدافع - ابتدا ناوگان و پدافند
+                    const warshipDefLoss = Math.floor((targetCountry.warships || 0) * defenderLossPercentage * damageMultiplier);
+                    const airDefenseDestroyed = Math.floor((targetCountry.airDefense || 0) * defenderLossPercentage * damageMultiplier);
+                    defenderUpdates.warships = Math.max(0, (targetCountry.warships || 0) - warshipDefLoss);
+                    defenderUpdates.airDefense = Math.max(0, (targetCountry.airDefense || 0) - airDefenseDestroyed);
+                    
+                    // آسیب به منابع و تجهیزات - اگر دفاع دریایی ضعیف باشد، آسیب بیشتری به سایر تجهیزات
+                    const moneyDamage = Math.floor(500 * damageMultiplier);
+                    const missileDamage = Math.floor(70 * damageMultiplier);
+                    const fighterDamage = Math.floor(45 * damageMultiplier);
+                    const bomberDamage = Math.floor(30 * damageMultiplier);
+                    const tankDamage = Math.floor(25 * damageMultiplier);
+                    const soldierDamage = Math.floor(20000 * damageMultiplier);
+                    
+                    defenderUpdates.money = Math.max(0, (targetCountry.money || 0) - moneyDamage);
+                    defenderUpdates.missiles = Math.max(0, (targetCountry.missiles || 0) - missileDamage);
+                    defenderUpdates.fighters = Math.max(0, (targetCountry.fighters || 0) - fighterDamage);
+                    defenderUpdates.bombers = Math.max(0, (targetCountry.bombers || 0) - bomberDamage);
+                    defenderUpdates.tanks = Math.max(0, (targetCountry.tanks || 0) - tankDamage);
+                    defenderUpdates.soldiers = Math.max(0, (targetCountry.soldiers || 0) - soldierDamage);
                     
                     currentCountry.warships = attackerUpdates.warships;
                     currentCountry.missiles = attackerUpdates.missiles;
                     currentCountry.fighters = attackerUpdates.fighters;
+                    currentCountry.bombers = attackerUpdates.bombers;
                 }
 
                 await db.collection('countries').doc(currentUser).update(attackerUpdates);
@@ -2264,8 +2410,8 @@
                     equipmentUsed = `${requiredEquipment.tanks} تانک، ${requiredEquipment.soldiers.toLocaleString()} سرباز، ${requiredEquipment.missiles} موشک`;
                     lossDetails = `تلفات ${currentCountry.name}: ${Math.floor(requiredEquipment.tanks * attackerLossPercentage)} تانک، ${Math.floor(requiredEquipment.soldiers * attackerLossPercentage).toLocaleString()} سرباز، ${Math.floor(requiredEquipment.missiles * attackerLossPercentage)} موشک`;
                 } else {
-                    equipmentUsed = `${requiredEquipment.warships} ناو جنگی، ${requiredEquipment.missiles} موشک، ${requiredEquipment.fighters} جنگنده`;
-                    lossDetails = `تلفات ${currentCountry.name}: ${Math.floor(requiredEquipment.warships * attackerLossPercentage)} ناو جنگی، ${Math.floor(requiredEquipment.missiles * attackerLossPercentage)} موشک، ${Math.floor(requiredEquipment.fighters * attackerLossPercentage)} جنگنده`;
+                    equipmentUsed = `${requiredEquipment.warships} ناو جنگی، ${requiredEquipment.missiles} موشک، ${requiredEquipment.fighters} جنگنده، ${requiredEquipment.bombers} بمب‌افکن`;
+                    lossDetails = `تلفات ${currentCountry.name}: ${Math.floor(requiredEquipment.warships * attackerLossPercentage)} ناو جنگی، ${Math.floor(requiredEquipment.missiles * attackerLossPercentage)} موشک، ${Math.floor(requiredEquipment.fighters * attackerLossPercentage)} جنگنده، ${Math.floor(requiredEquipment.bombers * attackerLossPercentage)} بمب‌افکن`;
                 }
                 
                 await addNews(`⚔️ ${currentCountry.name} با استفاده از ${equipmentUsed} ${attackTypeName} ${result} علیه ${targetCountry.name} انجام داد. ${lossDetails}. ${success ? 'حمله‌کننده پیروز شد و به تجهیزات و منابع دشمن آسیب زد!' : 'مدافع مقاومت کرد!'}`, 'سیستم');
@@ -2293,7 +2439,7 @@
             } else if (attackType === 'land') {
                 power = (equipment.tanks || 0) * 4 + (equipment.soldiers || 0) * 0.002 + (equipment.missiles || 0) * 2 + techBonus;
             } else if (attackType === 'sea') {
-                power = (equipment.warships || 0) * 15 + (equipment.missiles || 0) * 3 + (equipment.fighters || 0) * 2 + techBonus;
+                power = (equipment.warships || 0) * 15 + (equipment.missiles || 0) * 3 + (equipment.fighters || 0) * 2 + (equipment.bombers || 0) * 4 + techBonus;
             }
             
             return power;
@@ -2378,10 +2524,100 @@
             }
         }
 
+        // بارگذاری بخش کنترل بازی
+        async function loadGameControlSection() {
+            await checkGameStatus();
+            updateGameStatusDisplay();
+        }
+
+        // بررسی وضعیت بازی
+        async function checkGameStatus() {
+            try {
+                const gameStatusDoc = await db.collection('gameSettings').doc('status').get();
+                if (gameStatusDoc.exists) {
+                    gameEnabled = gameStatusDoc.data().enabled;
+                } else {
+                    // اگر سند وجود نداشت، بازی را روشن در نظر بگیریم
+                    gameEnabled = true;
+                    await db.collection('gameSettings').doc('status').set({ enabled: true });
+                }
+                updatePlayerMenuAccess();
+            } catch (error) {
+                console.error('Error checking game status:', error);
+                gameEnabled = true; // در صورت خطا، بازی را روشن در نظر بگیریم
+            }
+        }
+
+        // تغییر وضعیت بازی
+        async function toggleGameStatus(enable) {
+            try {
+                await db.collection('gameSettings').doc('status').set({ enabled: enable });
+                gameEnabled = enable;
+                
+                const statusText = enable ? 'روشن' : 'خاموش';
+                await addNews(`🎮 ادمین بازی را ${statusText} کرد. ${enable ? 'بازیکنان اکنون دسترسی کامل به امکانات دارند.' : 'بازیکنان فقط می‌توانند آمار خود را مشاهده کنند.'}`, 'سیستم');
+                
+                updateGameStatusDisplay();
+                alert(`✅ بازی با موفقیت ${statusText} شد! جزئیات در اخبار مشاهده کنید.`);
+            } catch (error) {
+                console.error('Error toggling game status:', error);
+                alert('❌ خطا در تغییر وضعیت بازی!');
+            }
+        }
+
+        // به‌روزرسانی نمایش وضعیت بازی
+        function updateGameStatusDisplay() {
+            const icon = document.getElementById('gameStatusIcon');
+            const text = document.getElementById('gameStatusText');
+            const desc = document.getElementById('gameStatusDesc');
+            
+            if (gameEnabled) {
+                icon.textContent = '🟢';
+                text.textContent = 'بازی روشن است';
+                desc.textContent = 'بازیکنان دسترسی کامل به امکانات دارند';
+            } else {
+                icon.textContent = '🔴';
+                text.textContent = 'بازی خاموش است';
+                desc.textContent = 'بازیکنان فقط می‌توانند آمار خود را مشاهده کنند';
+            }
+        }
+
+        // به‌روزرسانی دسترسی منوی بازیکن
+        function updatePlayerMenuAccess() {
+            const restrictedSections = ['blackmarket', 'statement', 'trade', 'attack'];
+            
+            restrictedSections.forEach(section => {
+                const menuItems = document.querySelectorAll(`#playerSidebar .sidebar-item[data-section="${section}"], #playerMobileMenu .sidebar-item[data-section="${section}"]`);
+                menuItems.forEach(item => {
+                    if (gameEnabled) {
+                        item.classList.remove('disabled');
+                        item.onclick = () => {
+                            showPlayerSection(section);
+                            closeMobileMenu();
+                        };
+                    } else {
+                        item.classList.add('disabled');
+                        item.onclick = () => {
+                            alert('🔴 بازی در حال حاضر خاموش است! فقط می‌توانید آمار کشور خود را مشاهده کنید.');
+                        };
+                    }
+                });
+            });
+        }
+
+        // بررسی دسترسی قبل از انجام عملیات
+        function checkGameAccess(actionName) {
+            if (!gameEnabled) {
+                alert(`🔴 بازی در حال حاضر خاموش است! امکان ${actionName} وجود ندارد.`);
+                return false;
+            }
+            return true;
+        }
+
         // شروع با اتصال به Firebase
         document.addEventListener('DOMContentLoaded', function() {
             initializeFirebase();
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969688b4c08330fa',t:'MTc1NDIzMTY0Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9696d638c0789dc6',t:'MTc1NDIzNDgyMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
