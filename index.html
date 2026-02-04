@@ -1,90 +1,77 @@
-<!DOCTYPE html><html lang="fa">
+<!DOCTYPE html>
+<html lang="fa">
 <head>
-  <meta charset="UTF-8" />
-  <title>Ticket Watcher (GitHub Pages)</title>
+  <meta charset="UTF-8">
+  <title>ارسال پیام به تلگرام</title>
   <style>
     body {
-      font-family: sans-serif;
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       direction: rtl;
+      font-family: sans-serif;
+      max-width: 400px;
+      margin: 50px auto;
     }
-    .card {
-      background: white;
-      padding: 30px;
-      border-radius: 14px;
-      width: 360px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-    }
-    h1 {
-      margin-bottom: 15px;
-      font-size: 20px;
-      text-align: center;
-    }
-    input, button {
+    textarea {
       width: 100%;
-      margin-top: 10px;
+      height: 120px;
       padding: 10px;
-      font-size: 14px;
     }
     button {
-      background: #667eea;
-      border: none;
-      color: white;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-    #status {
-      margin-top: 12px;
-      text-align: center;
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>بررسی موجودی بلیط</h1>
-    <input id="url" placeholder="لینک خرید بلیط را وارد کنید" />
-    <input id="text" placeholder="متن مورد نظر را وارد کنید" />
-    <button onclick="startSearch()">شروع جستجو</button>
-    <p id="status"></p>
-  </div>  <script>
-    let interval;
 
-    async function checkPage(url, text) {
-      try {
-        const res = await fetch(url);
-        const html = await res.text();
-        return html.includes(text);
-      } catch (e) {
-        return 'cors-error';
-      }
+<h3>ارسال پیام</h3>
+
+<textarea id="msg" placeholder="پیامت رو بنویس..."></textarea>
+<button onclick="send()">ارسال</button>
+
+<p id="status"></p>
+
+<script>
+const BOT_TOKEN = "8175812769:AAFFbhORQUy4K5BYc2gYTXmOweaKn5y_76U";
+const CHAT_ID = "1481996777";
+
+// CORS proxy عمومی
+const PROXY = "https://cors.isomorphic-git.org/";
+
+async function send() {
+  const msg = document.getElementById("msg").value;
+  const status = document.getElementById("status");
+
+  if (!msg) {
+    status.innerText = "پیام خالیه";
+    return;
+  }
+
+  status.innerText = "در حال ارسال...";
+
+  const url = PROXY + `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: CHAT_ID,
+        text: msg
+      })
+    });
+
+    if (res.ok) {
+      status.innerText = "✅ ارسال شد";
+      document.getElementById("msg").value = "";
+    } else {
+      status.innerText = "❌ خطا در ارسال";
     }
+  } catch {
+    status.innerText = "❌ ارتباط برقرار نشد";
+  }
+}
+</script>
 
-    function startSearch() {
-      const url = document.getElementById('url').value;
-      const text = document.getElementById('text').value;
-      const status = document.getElementById('status');
-
-      if (interval) clearInterval(interval);
-
-      interval = setInterval(async () => {
-        status.innerText = 'در حال جستجو...';
-        const result = await checkPage(url, text);
-
-        if (result === true) {
-          status.innerText = 'بلیط پیدا شد ✅';
-          alert('بلیط پیدا شد!');
-          clearInterval(interval);
-        } else if (result === false) {
-          status.innerText = 'هنوز پیدا نشد...';
-        } else {
-          status.innerText = '❌ سایت مقصد اجازه دسترسی نمی‌دهد (CORS)';
-          clearInterval(interval);
-        }
-      }, 3000);
-    }
-  </script></body>
+</body>
 </html>
