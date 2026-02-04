@@ -2,7 +2,7 @@
 <html lang="fa">
 <head>
   <meta charset="UTF-8">
-  <title>ارسال پیام به تلگرام</title>
+  <title>ارسال پیام</title>
   <style>
     body {
       direction: rtl;
@@ -24,7 +24,7 @@
 </head>
 <body>
 
-<h3>ارسال پیام</h3>
+<h3>ارسال پیام به تلگرام</h3>
 
 <textarea id="msg" placeholder="پیامت رو بنویس..."></textarea>
 <button onclick="send()">ارسال</button>
@@ -35,10 +35,7 @@
 const BOT_TOKEN = "8175812769:AAFFbhORQUy4K5BYc2gYTXmOweaKn5y_76U";
 const CHAT_ID = "1481996777";
 
-// CORS proxy عمومی
-const PROXY = "https://cors.isomorphic-git.org/";
-
-async function send() {
+function send() {
   const msg = document.getElementById("msg").value;
   const status = document.getElementById("status");
 
@@ -49,27 +46,16 @@ async function send() {
 
   status.innerText = "در حال ارسال...";
 
-  const url = PROXY + `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+  const text = encodeURIComponent(msg);
+  const url =
+    `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage` +
+    `?chat_id=${CHAT_ID}&text=${text}`;
 
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: CHAT_ID,
-        text: msg
-      })
-    });
+  const img = new Image();
+  img.src = url;
 
-    if (res.ok) {
-      status.innerText = "✅ ارسال شد";
-      document.getElementById("msg").value = "";
-    } else {
-      status.innerText = "❌ خطا در ارسال";
-    }
-  } catch {
-    status.innerText = "❌ ارتباط برقرار نشد";
-  }
+  status.innerText = "✅ ارسال شد";
+  document.getElementById("msg").value = "";
 }
 </script>
 
